@@ -1,0 +1,199 @@
+---
+title: "Vehicle Data Analysis STAT 420 Final Project"
+author: "Jiya Maheshwari(jiyam2) and Hanshul Bahl(hbahl2)"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+
+library(ggplot2)
+library(GGally)
+library(psych)
+library(MASS)
+library(faraway)
+```
+
+## PART 1: MODEL EXPLORATION
+
+```{r load}
+cars = read.csv('car_prices.csv')
+cars = na.omit(cars)
+head(cars)
+```
+
+
+```{r model 1}
+model1 <- lm(sellingprice~mmr+odometer+condition+transmission+color,cars)
+summary(model1)
+ levelst = as.factor(cars$transmission)
+ levelsc = as.factor(cars$color)
+ levels(levelst)
+ levels(levelsc)
+```
+
+# Interpretations
+
+a) The quantitative variable we choose to interpret is odometer. For ever 1 mile increase in the odometer readings for a car, the selling price of the car increases by an estimated average value of 9.288e-04 dollars when mmr, condition = 0 and transmission and color are at the baseline level.
+
+b) The categorical variable we choose to interpret is color, specifically the colorbeige. For a car
+whose color is beige, the selling price decreases by an estimated average value of 3.115e+02 dollars as compared to when a car has an undefined color (given as " " in the dataset) when mmr, condition, odometer = 0 and transmission is at the baseline level.
+
+c) The categorical variable color has k = 21 levels, and it contributes k-1 to our p which is equal to 20.
+
+d) The baseline level is when the color is undefined/unknown (" ") and the transmission of the car is undefined/unknown (" ").
+
+# Box Cox
+
+```{r box cox}
+boxcox(model1,plotit = TRUE,lambda = seq(0.5,1.5,by = 0.1))
+```
+
+
+**Box Cox Interpretation **
+
+The box cox plot suggests that the optimal value of lambda is ~1  which means y -> y^1, so we choose not to transform our variable. We choose this transformation as the lamba value is approx 0.9 for our optimal transformation, where the log-likelihood is the highest in the 95% confidence interval for lambda.
+
+# Interaction Model 
+
+```{r model 2}
+model2 <- lm(sellingprice~mmr+odometer+condition+transmission+color+mmr*odometer,cars)
+summary(model2)
+```
+
+**Interation Model Explanation** 
+
+We choose to add an interaction term to our model mmr:odometer, since the Manheim Market Rating for a car takes into consideration the distance travelled by the car/ mileage so we want to see how dependent MMR is on odometer readings.
+
+
+# Model Selection
+
+```{r model selection}
+backward = step(model2, direction='backward')
+```
+
+**Model Selection Explanation**
+
+We performed backward model selection on model2 (interaction model) using AIC where we begin with a full model and remove the least important predictors in order to find the final model. This yielded, that the final model selected should be sellingprice ~ mmr + odometer + condition + transmission + color + mmr:odometer.
+
+# Comparing R^2 Values
+
+```{r comparing adj r squared}
+summary(model1)$adj.r.squared
+summary(model2)$adj.r.squared
+```
+    
+    
+**Explanation of Comparion R^2 values**
+
+a) We use model 1 and model 2 from the previous questions for our analysis here.The R^2 value we choose to compare is the adjusted R^2 value, because it adjusts the actual R^2 value for the number of predictor variables in the model (model complexity). We choose the model with the higher adjusted R^2 value which is model 2(interaction model) with an adj R^2 value of 0.9703411 as compared to the adjusted R^2 value of model 1 (without the interaction term) of 0.970204.
+
+## PART 3: STATISTICAL TEST
+
+```{r statistical test}
+anova(model1,model2)
+```
+**Anova for Model 1 and Model 2 (Nested Models)**
+
+We performed an Anova test on nested models model1 and model2 to see which model predicts the selling prices of cars better.<br>
+
+Hypotheses: <br>
+
+Ho: sellingprice ~ mmr + odometer + condition + transmission + color <br>
+
+Ha: sellingprice ~ mmr + odometer + condition + transmission + color + mmr:odometer. <br>
+
+Test Statistic: F statistic- 2528.8 T statistic-50.2871753035 <br>
+
+P value: < 2.2e-16 <br>
+
+alpha = 0.05 <br>
+
+Conclusion: Since the p value is < alpha, we don't have significant evidence to support the null hypothesis, so we reject Ho. The model we will use going forward is sellingprice ~ mmr + odometer + condition + transmission + color + mmr : odometer.
+
+## PART 2: MODEL ANALYSIS
+
+# a) Reason for Model Selection
+
+We have chosen model 2 for this section, since it yields to be the better model between the two models discussed in the project previously based on the results of the Anova Test conducted, the Adjusted R^2 values and backwards model selection using AIC.
+
+# b) Fitted model
+
+```{r fitted model}
+summary(model2)
+nrow(cars)
+length(coef(model2))
+```
+
+
+y^ = -1,150.14+9.899e-01 x mmr + 2.751e-03 x odometer + 3.729e+01* condition-3.286e-07x mmr:odometer
+
+For a car that is beige in color with automatic transmission.
+
+# c) N and P values 
+
+n = 546976
+p = 27
+
+# d) Standard Deviation
+
+```{r stddev}
+sd(cars$sellingprice)
+sd(fitted(model2))
+```
+
+These values tell us how far a typical observation is from the mean for the predicted values and the actual values of y. 
+
+# e) Collinearity 
+
+```{r r^2}
+modeltemp <-  lm(sellingprice ~ mmr*odometer+condition,cars)
+vif(modeltemp)
+```
+
+We can observe that the VIF values for all the quantitative predictors are < 5 which suggests that collinearity is not a cause of concern for any of our predictor variables and in turn, our model.
+
+
+
+# f) Model Assumptions 
+
+```{r plot}
+plot(model2)
+```
+
+From the default R plots we can see that the Linearity assumption is met since the the red line is flat in the fitted vs residuals graph. From the Q-Q plot we can see that the normality assumption is not met as many quantile points do not lie on the theoretical normal line. As for equal variance, in the fitted vs std residuals graph the red line is not exactly flat, but upon looking at the fitted vs residuals graph , we can say that the data is approx. equally distributed about the e = 0 line, so the equal variance assumption is also met. The last model assumption is independence of true errors which cannot be determined graphically.
+
+# g) Unusual Observations
+
+```{r unsual observations}
+p = 27
+n = 546976
+length(hatvalues(model2)[which(hatvalues(model2) > 2*p/(n))])
+length(rstandard(model2)[which(abs(rstandard(model2)) > 2)])
+length(cooks.distance(model2)[which(cooks.distance(model2) > 4/n)])
+```
+
+
+From the last default plot we can see that observations 344906 and 405317 have high cook's distances which makes them more obviously influential amongst the 19054 data points exceeding the course limit of 4/n. 44585 observations have a high leverage value that exceeds 2*p/n but its hard to tell whether either of the influential points fall in that category.  21549 observations have std. residuals greater than 2. 
+
+The adjustments that can be made is to increase the predictor variables or to decrease the number of observations.
+
+# h) Leave one out
+
+```{r leave one out}
+e = sum((residuals(model2) / (1 - hatvalues(model2)))^2)
+l = sqrt(e/n)
+print(l)
+```
+
+The estimate for errors of the model if it were to be applied to a new observation by
+calculating the leave one out cross validation value is 2818455.
+
+# g) Model Complexity 
+
+```{r model complexity}
+n >= 5*p
+n >= 10*p
+```
+
+The course threshholds that we have for model complexity relative to number of observations are that n >= 5p or n >= 10p, which is met by model 2. We are not concerned about the size of our model, in terms of model complexity,relative to the number of observations. 
